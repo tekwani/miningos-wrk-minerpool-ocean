@@ -1,8 +1,10 @@
 'use strict'
 
 const async = require('async')
-const TetherWrkBase = require('tether-wrk-base/workers/base.wrk.tether')
-const { OceanMinerPoolApi } = require('./lib/ocean.minerpool.api')
+const TetherWrkBase = require('@tetherto/tether-wrk-base/workers/base.wrk.tether')
+const OceanMinerPoolApi = require('./lib/ocean.minerpool.api')
+const DatumApi = require('./lib/datum.minerpool.api')
+
 const { getWorkersStats, getTimeRanges, convertMsToSeconds, isCurrentMonth, getMonthlyDateRanges } = require('./lib/utils')
 const { BTC_SATS, SCHEDULER_TIMES, POOL_TYPE, MINUTE_MS, HOUR_MS, HOURS_24_MS } = require('./lib/constants')
 const utilsStore = require('hp-svc-facs-store/utils')
@@ -43,6 +45,10 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
       ['fac', 'bfx-facs-http', '0', '0', {
         baseUrl: this.conf.ocean.apiUrl,
         timeout: 30 * 1000
+      }, 0],
+      ['fac', 'bfx-facs-http', '1', '1', {
+        baseUrl: this.conf.ocean.datum.apiUrl,
+        timeout: 30 * 1000
       }, 0]
     ])
   }
@@ -67,6 +73,7 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
         this.workersDb = db.sub('workers')
 
         this.oceanApi = new OceanMinerPoolApi(this.http_0)
+        this.datumApi = new DatumApi(this.http_1)
 
         for (const { time, key } of Object.values(SCHEDULER_TIMES)) {
           this.scheduler_ocean.add(key, (fireTime) => {
@@ -389,6 +396,66 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
     return data.map(d => ({ poolType: POOL_TYPE, ...d }))
   }
 
+  async getDatumStats () {
+    try {
+      return await this.datumApi.getDecentralizedClientStats()
+    } catch (e) {
+      this._logErr('ERR_DATUM_STATS_FETCH', e)
+    }
+  }
+
+  async getStratumInfo () {
+    try {
+      return await this.datumApi.getStratumServerInfo()
+    } catch (e) {
+      this._logErr('ERR_STRATUM_INFO_FETCH', e)
+    }
+  }
+
+  async getStratumJob () {
+    try {
+      return await this.datumApi.getCurrentStratumJob()
+    } catch (e) {
+      this._logErr('ERR_STRATUM_JOB_FETCH', e)
+    }
+  }
+
+  async getThreadStats () {
+    try {
+      return await this.datumApi.getThreadStats()
+    } catch (e) {
+      this._logErr('ERR_THREAD_STATS_FETCH', e)
+    }
+  }
+
+  async getStratumList () {
+    try {
+      const { user = '', password = '' } = this.conf.ocean.datum
+      const auth = (user || password) ? { user, password } : undefined
+      return await this.datumApi.getStratumList(auth)
+    } catch (e) {
+      this._logErr('ERR_STRATUM_LIST_FETCH', e)
+    }
+  }
+
+  async getCoinbaser () {
+    try {
+      return await this.datumApi.getCoinbaser()
+    } catch (e) {
+      this._logErr('ERR_COINBASER_FETCH', e)
+    }
+  }
+
+  async getDatumConfig () {
+    try {
+      const { user = '', password = '' } = this.conf.ocean.datum
+      const auth = (user || password) ? { user, password } : undefined
+      return await this.datumApi.getConfiguration(auth)
+    } catch (e) {
+      this._logErr('ERR_CONFIGURATION_FETCH', e)
+    }
+  }
+
   async getWrkExtData (req) {
     const { query } = req
     if (!query) throw new Error('ERR_QUERY_INVALID')
@@ -421,6 +488,27 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
         data = await this.getDbData(this.statsDb, query)
         if (query.interval) data = this._aggrByInterval(data, query.interval)
         data.forEach(d => { if (d.stats) d.stats = this.appendPoolType(d.stats) })
+        break
+      case 'datum-stats':
+        data = await this.getDatumStats()
+        break
+      case 'stratum-info':
+        data = await this.getStratumInfo()
+        break
+      case 'stratum-job':
+        data = await this.getStratumJob()
+        break
+      case 'thread-stats':
+        data = await this.getThreadStats()
+        break
+      case 'stratum-list':
+        data = await this.getStratumList()
+        break
+      case 'coinbaser':
+        data = await this.getCoinbaser()
+        break
+      case 'datum-config':
+        data = await this.getDatumConfig()
         break
       default:
         data = this.data[key]
