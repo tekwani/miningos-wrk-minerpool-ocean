@@ -34,8 +34,8 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
     super.init()
 
     this.loadConf('ocean', 'ocean')
-    this.accounts = this.conf.ocean.accounts
-
+    const { accounts, apiUrl, datum } = this.conf.ocean
+    this.accounts = accounts
     this.setInitFacs([
       ['fac', 'bfx-facs-scheduler', '0', 'ocean', {}, -10],
       ['fac', 'hp-svc-facs-store', 's1', 's1', {
@@ -43,13 +43,15 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
         storeDir: `store/${this.ctx.rack}-db`
       }, 0],
       ['fac', 'bfx-facs-http', '0', '0', {
-        baseUrl: this.conf.ocean.apiUrl,
+        baseUrl: apiUrl,
         timeout: 30 * 1000
       }, 0],
-      ['fac', 'bfx-facs-http', '1', '1', {
-        baseUrl: this.conf.ocean.datum.apiUrl,
-        timeout: 30 * 1000
-      }, 0]
+      ...(datum?.apiUrl
+        ? [['fac', 'bfx-facs-http', '1', '1', {
+            baseUrl: datum.apiUrl,
+            timeout: 30 * 1000
+          }, 0]]
+        : [])
     ])
   }
 
@@ -73,7 +75,9 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
         this.workersDb = db.sub('workers')
 
         this.oceanApi = new OceanMinerPoolApi(this.http_0)
-        this.datumApi = new DatumApi(this.http_1)
+        if (this.conf.ocean.datum) {
+          this.datumApi = new DatumApi(this.http_1, this.conf.ocean.datum)
+        }
 
         for (const { time, key } of Object.values(SCHEDULER_TIMES)) {
           this.scheduler_ocean.add(key, (fireTime) => {
@@ -430,9 +434,7 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
 
   async getStratumList () {
     try {
-      const { user = '', password = '' } = this.conf.ocean.datum
-      const auth = (user || password) ? { user, password } : undefined
-      return await this.datumApi.getStratumList(auth)
+      return await this.datumApi.getStratumList()
     } catch (e) {
       this._logErr('ERR_STRATUM_LIST_FETCH', e)
     }
@@ -448,9 +450,7 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
 
   async getDatumConfig () {
     try {
-      const { user = '', password = '' } = this.conf.ocean.datum
-      const auth = (user || password) ? { user, password } : undefined
-      return await this.datumApi.getConfiguration(auth)
+      return await this.datumApi.getConfiguration()
     } catch (e) {
       this._logErr('ERR_CONFIGURATION_FETCH', e)
     }

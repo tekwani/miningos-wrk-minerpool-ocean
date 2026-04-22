@@ -93,36 +93,32 @@ test('DatumApi: getThreadStats should call correct endpoint', async (t) => {
   t.ok(result[0])
 })
 
-test('DatumApi: getStratumList without auth should use http.get', async (t) => {
-  let calledPath = null
+test('DatumApi: getStratumList without auth should throw missing credentials', async (t) => {
   const mockHttp = {
-    get: async (path) => {
-      calledPath = path
-      return { body: { clients: [] } }
+    get: async () => {
+      throw new Error('http.get should not be used for authenticated routes')
     }
   }
 
   const api = new DatumApi(mockHttp)
-  const result = await api.getStratumList()
-
-  t.is(calledPath, '/v1/stratum_client_list')
-  t.ok(Array.isArray(result.clients))
+  await t.exception(
+    api.getStratumList(),
+    /ERR_DATUM_CREDENTIALS_MISSING/
+  )
 })
 
-test('DatumApi: getConfiguration without auth should use http.get', async (t) => {
-  let calledPath = null
+test('DatumApi: getConfiguration without auth should throw missing credentials', async (t) => {
   const mockHttp = {
-    get: async (path) => {
-      calledPath = path
-      return { body: { pool_address: 'bc1q' } }
+    get: async () => {
+      throw new Error('http.get should not be used for authenticated routes')
     }
   }
 
   const api = new DatumApi(mockHttp)
-  const result = await api.getConfiguration()
-
-  t.is(calledPath, '/v1/configuration')
-  t.is(result.pool_address, 'bc1q')
+  await t.exception(
+    api.getConfiguration(),
+    /ERR_DATUM_CREDENTIALS_MISSING/
+  )
 })
 
 test('DatumApi: _request should propagate http errors', async (t) => {
@@ -184,8 +180,8 @@ test('DatumApi: authenticated _request uses DigestClient with baseUrl', async (t
         throw new Error('http.get should not be used when auth is set')
       }
     }
-    const api = new DatumApiWithMockDigest(mockHttp)
-    const result = await api.getStratumList({ user: 'myuser', password: 'mypass' })
+    const api = new DatumApiWithMockDigest(mockHttp, { user: 'myuser', password: 'mypass' })
+    const result = await api.getStratumList()
 
     t.is(result.list, 'ok')
     t.is(fetchedUrl, 'http://datum.example/prefix/v1/stratum_client_list')

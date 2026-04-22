@@ -150,24 +150,20 @@ test('integration: getThreadStats returns mock payload', async (t) => {
   t.ok(typeof first === 'object')
 })
 
-test('integration: getStratumList without auth returns mock payload', async (t) => {
+test('integration: getStratumList without auth throws missing credentials', async (t) => {
   await ensureServer()
-  const data = await apiClient.getStratumList()
-
-  t.ok(data.result)
-  const list = data.result
-  const outerKeys = Object.keys(list)
-  t.ok(outerKeys.length > 0)
+  await t.exception(
+    apiClient.getStratumList(),
+    /ERR_DATUM_CREDENTIALS_MISSING/
+  )
 })
 
-test('integration: getConfiguration without auth returns mock payload', async (t) => {
+test('integration: getConfiguration without auth throws missing credentials', async (t) => {
   await ensureServer()
-  const data = await apiClient.getConfiguration()
-
-  t.ok(data.result)
-  t.ok(data.result.pool_address)
-  t.ok(data.result.pool)
-  t.ok(typeof data.result.pool.port === 'number')
+  await t.exception(
+    apiClient.getConfiguration(),
+    /ERR_DATUM_CREDENTIALS_MISSING/
+  )
 })
 
 test('integration: concurrent Datum reads', async (t) => {
