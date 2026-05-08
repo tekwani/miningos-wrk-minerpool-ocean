@@ -1,12 +1,12 @@
 'use strict'
 
 const async = require('async')
-const TetherWrkBase = require('tether-wrk-base/workers/base.wrk.tether')
+const TetherWrkBase = require('@tetherto/tether-wrk-base/workers/base.wrk.tether')
 const { OceanMinerPoolApi } = require('./lib/ocean.minerpool.api')
 const { getWorkersStats, getTimeRanges, convertMsToSeconds, isCurrentMonth, getMonthlyDateRanges } = require('./lib/utils')
 const { BTC_SATS, SCHEDULER_TIMES, POOL_TYPE, MINUTE_MS, HOUR_MS, HOURS_24_MS } = require('./lib/constants')
-const utilsStore = require('hp-svc-facs-store/utils')
-const gLibUtilBase = require('lib-js-util-base')
+const utilsStore = require('@tetherto/hp-svc-facs-store/utils')
+const gLibUtilBase = require('@bitfinex/lib-js-util-base')
 const mingo = require('mingo')
 
 class WrkMinerPoolRackOcean extends TetherWrkBase {
@@ -35,12 +35,12 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
     this.accounts = this.conf.ocean.accounts
 
     this.setInitFacs([
-      ['fac', 'bfx-facs-scheduler', '0', 'ocean', {}, -10],
-      ['fac', 'hp-svc-facs-store', 's1', 's1', {
+      ['fac', '@bitfinex/bfx-facs-scheduler', '0', 'ocean', {}, -10],
+      ['fac', '@tetherto/hp-svc-facs-store', 's1', 's1', {
         storePrimaryKey: this.ctx.storePrimaryKey,
         storeDir: `store/${this.ctx.rack}-db`
       }, 0],
-      ['fac', 'bfx-facs-http', '0', '0', {
+      ['fac', '@bitfinex/bfx-facs-http', '0', '0', {
         baseUrl: this.conf.ocean.apiUrl,
         timeout: 30 * 1000
       }, 0]
