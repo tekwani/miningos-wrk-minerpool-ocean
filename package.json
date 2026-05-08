@@ -1,5 +1,5 @@
 {
-  "name": "miningos-wrk-minerpool-ocean",
+  "name": "@tetherto/miningos-wrk-minerpool-ocean",
   "version": "0.0.1",
   "description": "Ocean mining pool worker",
   "keywords": [
