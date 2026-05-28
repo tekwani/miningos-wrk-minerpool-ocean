@@ -6,7 +6,7 @@ const OceanMinerPoolApi = require('./lib/ocean.minerpool.api')
 const DatumApi = require('./lib/datum.minerpool.api')
 
 const { getWorkersStats, getTimeRanges, convertMsToSeconds, isCurrentMonth, getMonthlyDateRanges } = require('./lib/utils')
-const { BTC_SATS, SCHEDULER_TIMES, POOL_TYPE, MINUTE_MS, HOUR_MS, HOURS_24_MS } = require('./lib/constants')
+const { BTC_SATS, SCHEDULER_TIMES, POOL_TYPE, MINUTE_MS, HOUR_MS, HOURS_24_MS, DATUM_OFFLINE_ERROR, DATUM_STATUS } = require('./lib/constants')
 const utilsStore = require('hp-svc-facs-store/utils')
 const gLibUtilBase = require('lib-js-util-base')
 const mingo = require('mingo')
@@ -402,9 +402,28 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
 
   async getDatumStats () {
     try {
-      return await this.datumApi.getDatumStats()
+      const data = await this.datumApi.getDatumStats()
+      const items = data?.result?.items || []
+      const connections = items.find(item => item.title === 'Connections')?.text
+      const hashrate = items.find(item => item.title === 'Hashrate')?.text
+      return {
+        datum: {
+          status: DATUM_STATUS.ONLINE,
+          error: null,
+          connections: connections ? Number(connections) : null,
+          hashrate: hashrate ? Number(hashrate) : null
+        }
+      }
     } catch (e) {
       this._logErr('ERR_DATUM_STATS_FETCH', e)
+      return {
+        datum: {
+          status: DATUM_STATUS.OFFLINE,
+          error: DATUM_OFFLINE_ERROR,
+          connections: 0,
+          hashrate: 0
+        }
+      }
     }
   }
 

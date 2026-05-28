@@ -35,7 +35,8 @@
     "test:unit": "brittle tests/unit/*.js",
     "test:integration": "brittle tests/integration/*.js",
     "test:coverage": "brittle --coverage tests/**/*.test.js",
-    "dev": "node worker.js --wtype wrk-minerpool-rack-ocean --env development --rack rack-1"
+    "dev": "node worker.js --wtype wrk-minerpool-rack-ocean --env development --rack rack-1",
+    "mock": "node mock/server.js"
   },
   "dependencies": {
     "bfx-facs-http": "git+https://github.com/bitfinexcom/bfx-facs-http.git",
