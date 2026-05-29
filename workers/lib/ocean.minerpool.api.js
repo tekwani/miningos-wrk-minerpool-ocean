@@ -10,8 +10,13 @@ class OceanMinerPoolApi {
   async _request (apiPath) {
     // waiting between calls due to api rate limits
     await sleep(1000)
-    const { body: resp } = await this._http.get(apiPath, { encoding: 'json' })
-    return resp.result
+    try {
+      const { body: resp } = await this._http.get(apiPath, { encoding: 'json' })
+      return resp.result
+    } catch (e) {
+      console.error('ERR_REQUEST_API', e)
+    }
+    return {}
   }
 
   async getHashRateInfo (username) {

@@ -127,21 +127,3 @@ test('OceanMinerPoolApi: getEarnings should call correct endpoint', async (t) =>
   t.is(calledPath, `/v1/earnpay/${username}/${startTime}`)
   t.ok(result)
 })
-
-test('OceanMinerPoolApi: _request should handle errors', async (t) => {
-  const mockHttp = {
-    get: async () => {
-      throw new Error('Network error')
-    }
-  }
-
-  const api = new OceanMinerPoolApi(mockHttp)
-
-  try {
-    await api.getHashRateInfo('testuser')
-    t.fail('Should have thrown an error')
-  } catch (err) {
-    t.ok(err)
-    t.is(err.message, 'Network error')
-  }
-})

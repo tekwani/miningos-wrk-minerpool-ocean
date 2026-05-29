@@ -235,4 +235,14 @@ module.exports = function (fastify) {
       res.code(500).send({ error: e.message })
     }
   })
+
+  fastify.get('/umbrel-api', (req, res) => {
+    try {
+      if (checkError(req, res)) return
+
+      sendResult(res, req.state.umbrel_api)
+    } catch (e) {
+      res.code(500).send({ error: e.message })
+    }
+  })
 }
