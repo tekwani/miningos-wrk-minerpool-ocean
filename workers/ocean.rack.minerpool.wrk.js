@@ -46,7 +46,7 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
         timeout: 30 * 1000
       }, 0],
       ...(datum?.apiUrl
-        ? [['fac', 'bfx-facs-http', '1', '1', {
+        ? [['fac', '@bitfinex/bfx-facs-http', '1', '1', {
             baseUrl: datum.apiUrl,
             timeout: 30 * 1000
           }, 0]]
