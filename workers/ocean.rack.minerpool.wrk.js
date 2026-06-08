@@ -407,6 +407,7 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
       const hashrate = items.find(item => item.title === 'Hashrate')?.text
       return {
         datum: {
+          poolType: POOL_TYPE,
           status: DATUM_STATUS.ONLINE,
           error: null,
           connections: connections ? Number(connections) : null,
@@ -417,6 +418,7 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
       this._logErr('ERR_DATUM_STATS_FETCH', e)
       return {
         datum: {
+          poolType: POOL_TYPE,
           status: DATUM_STATUS.OFFLINE,
           error: DATUM_OFFLINE_ERROR,
           connections: 0,
@@ -509,6 +511,7 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
       case 'stats':
         data = this.data.statsData
         if (data.stats) data.stats = this.appendPoolType(data.stats)
+        data.datum = (await this.getDatumStats()).datum
         break
       case 'stats-history':
         data = await this.getDbData(this.statsDb, query)
