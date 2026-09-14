@@ -656,7 +656,7 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
         data.forEach(d => { if (d.stats) d.stats = this.appendPoolType(d.stats) })
         break
       case 'hashrate-history':
-        data = { hashrateHistory: await this.getDbData(this.hashrateHistoryDb, query) }
+        data = { hashrateHistory: this.appendPoolType(await this.getDbData(this.hashrateHistoryDb, query)) }
         break
       case 'datum-stats':
         data = await this.getDatumStats()
