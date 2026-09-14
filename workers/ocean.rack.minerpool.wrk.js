@@ -201,7 +201,7 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
     }
   }
 
-  async fetchEarchings (username, start, end) {
+  async fetchEarnings (username, start, end) {
     for (let attempt = 1; attempt <= (this.apiRetries || 3); attempt++) {
       const data = await this.oceanApi.getTransactions(username, start, end)
       if (data?.earnings) return data.earnings
@@ -254,7 +254,7 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
       const start = convertMsToSeconds(ts)
       const end = convertMsToSeconds(ts + HOURS_24_MS)
       for (const username of this.accounts) {
-        const earnings = await this.fetchEarchings(username, start, end)
+        const earnings = await this.fetchEarnings(username, start, end)
         transactions = transactions.concat(earnings.map(t => ({ username, ...t })))
       }
 
