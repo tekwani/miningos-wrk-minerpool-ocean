@@ -162,3 +162,29 @@ test('OceanMinerPoolApi: getEarnings should call correct endpoint', async (t) =>
   t.is(calledPath, `/v1/earnpay/${username}/${startTime}`)
   t.ok(result)
 })
+
+test('OceanMinerPoolApi: ping should call /v1/blocks and return true', async (t) => {
+  let calledPath = null
+  const api = createApi({
+    get: async (path) => {
+      calledPath = path
+      return { body: { result: { blocks: [] } } }
+    }
+  })
+
+  t.is(await api.ping(), true)
+  t.is(calledPath, '/v1/blocks')
+})
+
+test('OceanMinerPoolApi: _request should return empty object on http error', async (t) => {
+  const api = createApi({
+    get: async () => { throw new Error('network down') }
+  })
+  const result = await api.getBlocks()
+  t.alike(result, {})
+})
+
+test('OceanMinerPoolApi: default delayMs is 5000', (t) => {
+  const api = new OceanMinerPoolApi({})
+  t.is(api._delayMs, 5000)
+})
