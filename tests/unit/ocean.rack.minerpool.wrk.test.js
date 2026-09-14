@@ -38,6 +38,8 @@ function createMockWorker () {
   worker.ctx = mockCtx
   worker.conf = mockConf
   worker.accounts = mockConf.ocean.accounts
+  worker.apiRetries = mockConf.ocean.apiRetry || 3
+  worker.lastSavedHashrateTs = 0
   worker.wtype = 'ocean'
   worker.prefix = 'ocean-rack-1'
   worker.data = {
@@ -769,8 +771,9 @@ test('fetchData: dispatches scheduler keys', async (t) => {
   calls.length = 0
   worker.fetchWorkers = async () => { calls.push('fw') }
   worker.saveStats = async () => { calls.push('ss') }
+  worker.fetchHashrateHistory = async () => { calls.push('fhh') }
   await worker.fetchData(SCHEDULER_TIMES._5M.key, new Date())
-  t.ok(calls.includes('fw') && calls.includes('ss'))
+  t.ok(calls.includes('fw') && calls.includes('ss') && calls.includes('fhh'))
 
   calls.length = 0
   worker.fetchTransactions = async () => { calls.push('ft') }
@@ -883,6 +886,32 @@ test('fetchTransactions and fetchBlocks', async (t) => {
   await worker.fetchTransactions()
   await worker.fetchBlocks()
   t.pass()
+})
+
+test('fetchHashrateHistory: saves new history points', async (t) => {
+  const worker = createMockWorker()
+  worker.accounts = ['user1']
+  worker.hashrateHistoryDb = {}
+  const saved = []
+  worker._saveToDb = async (db, ts, data) => { saved.push({ ts, data }) }
+  worker.fetchHashrateHistory = WrkMinerPoolRackOcean.prototype.fetchHashrateHistory
+  worker.oceanApi = {
+    getHashRateHistory: async () => ({
+      hashrate_history_results: 2,
+      hashrate_history: {
+        '2026-09-14T00:00:00': 100,
+        '2026-09-14T00:10:00': 200
+      },
+      avg_window_seconds: 3600
+    })
+  }
+
+  await worker.fetchHashrateHistory()
+  t.is(saved.length, 2)
+  t.is(saved[0].data.username, 'user1')
+  t.is(saved[0].data.hashrate, 100)
+  t.is(saved[1].data.hashrate, 200)
+  t.ok(worker.lastSavedHashrateTs > 0)
 })
 
 test('saveStats and saveWorkers write to db', async (t) => {

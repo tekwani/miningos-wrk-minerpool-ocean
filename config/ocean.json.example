@@ -2,7 +2,7 @@
   "apiUrl": "http://127.0.0.1:8000",
   "accounts":[],
   "datum": {
-    "apiUrl": "http://127.0.0.1:7152",
+    "apiUrl": "http://127.0.0.1:8000",
     "user": "",
     "password": ""
   },

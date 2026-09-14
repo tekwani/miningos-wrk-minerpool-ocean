@@ -3,13 +3,13 @@
 const { setTimeout: sleep } = require('timers/promises')
 
 class OceanMinerPoolApi {
-  constructor (http) {
+  constructor (http, { delayMs = 5000 } = {}) {
     this._http = http
+    this._delayMs = delayMs
   }
 
   async _request (apiPath) {
-    // waiting between calls due to api rate limits
-    await sleep(1000)
+    if (this._delayMs > 0) await sleep(this._delayMs)
     try {
       const { body: resp } = await this._http.get(apiPath, { encoding: 'json' })
       return resp.result
@@ -21,6 +21,10 @@ class OceanMinerPoolApi {
 
   async getHashRateInfo (username) {
     return this._request(`/v1/user_hashrate/${username}`)
+  }
+
+  async getHashRateHistory (username, start, end) {
+    return this._request(`/v1/history/user_hashrate/${username}/${start}/${end}/3600`)
   }
 
   async getWorkers (username) {

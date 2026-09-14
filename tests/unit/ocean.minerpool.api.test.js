@@ -3,12 +3,16 @@
 const test = require('brittle')
 const OceanMinerPoolApi = require('../../workers/lib/ocean.minerpool.api')
 
+function createApi (http) {
+  return new OceanMinerPoolApi(http, { delayMs: 0 })
+}
+
 test('OceanMinerPoolApi: should create instance with http client', (t) => {
   const mockHttp = {
     get: async () => ({ body: { result: {} } })
   }
 
-  const api = new OceanMinerPoolApi(mockHttp)
+  const api = createApi(mockHttp)
   t.ok(api)
   t.ok(api._http === mockHttp)
 })
@@ -24,12 +28,43 @@ test('OceanMinerPoolApi: getHashRateInfo should call correct endpoint', async (t
     }
   }
 
-  const api = new OceanMinerPoolApi(mockHttp)
+  const api = createApi(mockHttp)
   const result = await api.getHashRateInfo(username)
 
   t.is(calledPath, `/v1/user_hashrate/${username}`)
   t.ok(result)
   t.is(result.hashrate_60s, 1000)
+})
+
+test('OceanMinerPoolApi: getHashRateHistory should call correct endpoint', async (t) => {
+  const username = 'testuser'
+  const start = '2026-09-14'
+  const end = '2026-09-15'
+  let calledPath = null
+
+  const mockHttp = {
+    get: async (path) => {
+      calledPath = path
+      return {
+        body: {
+          result: {
+            hashrate_history_results: 1,
+            hashrate_history: { '2026-09-14T00:00:00': 1000 },
+            avg_window_seconds: 3600
+          }
+        }
+      }
+    }
+  }
+
+  const api = createApi(mockHttp)
+  const result = await api.getHashRateHistory(username, start, end)
+
+  t.is(calledPath, `/v1/history/user_hashrate/${username}/${start}/${end}/3600`)
+  t.ok(result)
+  t.is(result.hashrate_history_results, 1)
+  t.is(result.avg_window_seconds, 3600)
+  t.is(result.hashrate_history['2026-09-14T00:00:00'], 1000)
 })
 
 test('OceanMinerPoolApi: getWorkers should call correct endpoint', async (t) => {
@@ -43,7 +78,7 @@ test('OceanMinerPoolApi: getWorkers should call correct endpoint', async (t) => 
     }
   }
 
-  const api = new OceanMinerPoolApi(mockHttp)
+  const api = createApi(mockHttp)
   const result = await api.getWorkers(username)
 
   t.is(calledPath, `/v1/user_hashrate_full/${username}`)
@@ -63,7 +98,7 @@ test('OceanMinerPoolApi: getMonthlyEarnings should call correct endpoint', async
     }
   }
 
-  const api = new OceanMinerPoolApi(mockHttp)
+  const api = createApi(mockHttp)
   const result = await api.getMonthlyEarnings(username, month)
 
   t.is(calledPath, `/v1/monthly_earnings_report/${username}/${month}`)
@@ -84,7 +119,7 @@ test('OceanMinerPoolApi: getTransactions should call correct endpoint', async (t
     }
   }
 
-  const api = new OceanMinerPoolApi(mockHttp)
+  const api = createApi(mockHttp)
   const result = await api.getTransactions(username, start, end)
 
   t.is(calledPath, `/v1/earnpay/${username}/${start}/${end}`)
@@ -101,7 +136,7 @@ test('OceanMinerPoolApi: getBlocks should call correct endpoint', async (t) => {
     }
   }
 
-  const api = new OceanMinerPoolApi(mockHttp)
+  const api = createApi(mockHttp)
   const result = await api.getBlocks()
 
   t.is(calledPath, '/v1/blocks')
@@ -121,7 +156,7 @@ test('OceanMinerPoolApi: getEarnings should call correct endpoint', async (t) =>
     }
   }
 
-  const api = new OceanMinerPoolApi(mockHttp)
+  const api = createApi(mockHttp)
   const result = await api.getEarnings(username, startTime)
 
   t.is(calledPath, `/v1/earnpay/${username}/${startTime}`)
