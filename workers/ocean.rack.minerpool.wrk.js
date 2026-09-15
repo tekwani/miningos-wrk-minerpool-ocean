@@ -105,6 +105,8 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
         case SCHEDULER_TIMES._5M.key:
           await this.fetchWorkers(time)
           await this.saveStats(time)
+          break
+        case SCHEDULER_TIMES._30M.key:
           await this.fetchHashrateHistory()
           break
         case SCHEDULER_TIMES._1D.key:
@@ -186,6 +188,7 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
 
         for (const dateString in history) {
           const ts = new Date(`${dateString}Z`).getTime()
+          if (ts % HOUR_MS !== 0) continue
           if (this.lastSavedHashrateTs < ts) {
             await this._saveToDb(
               this.hashrateHistoryDb,

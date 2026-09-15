@@ -9,6 +9,7 @@ const POOL_TYPE = 'ocean'
 const SCHEDULER_TIMES = {
   _1M: { time: '0 */1 * * * *', key: '1m' },
   _5M: { time: '0 */5 * * * *', key: '5m' },
+  _30M: { time: '0 */30 * * * *', key: '30m' },
   _1D: { time: '0 0 0 * * *', key: '1D' }
 }
 

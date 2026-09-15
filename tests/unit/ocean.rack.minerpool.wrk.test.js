@@ -898,10 +898,11 @@ test('fetchHashrateHistory: saves new history points', async (t) => {
   worker.fetchHashrateHistory = WrkMinerPoolRackOcean.prototype.fetchHashrateHistory
   worker.oceanApi = {
     getHashRateHistory: async () => ({
-      hashrate_history_results: 2,
+      hashrate_history_results: 3,
       hashrate_history: {
         '2026-09-14T00:00:00': 100,
-        '2026-09-14T00:10:00': 200
+        '2026-09-14T00:10:00': 200,
+        '2026-09-14T01:00:00': 300
       },
       avg_window_seconds: 3600
     })
@@ -911,7 +912,9 @@ test('fetchHashrateHistory: saves new history points', async (t) => {
   t.is(saved.length, 2)
   t.is(saved[0].data.username, 'user1')
   t.is(saved[0].data.hashrate, 100)
-  t.is(saved[1].data.hashrate, 200)
+  t.is(saved[1].data.hashrate, 300)
+  t.is(saved[0].ts, Date.parse('2026-09-14T00:00:00Z'))
+  t.is(saved[1].ts, Date.parse('2026-09-14T01:00:00Z'))
   t.ok(worker.lastSavedHashrateTs > 0)
 })
 
@@ -926,12 +929,13 @@ test('fetchHashrateHistory: skips empty history and older timestamps', async (t)
   await worker.fetchHashrateHistory()
   t.is(saved.length, 0)
 
-  worker.lastSavedHashrateTs = Date.parse('2026-09-14T00:10:00Z')
+  worker.lastSavedHashrateTs = Date.parse('2026-09-14T01:00:00Z')
   worker.oceanApi = {
     getHashRateHistory: async () => ({
       hashrate_history: {
         '2026-09-14T00:00:00': 100,
-        '2026-09-14T00:10:00': 200
+        '2026-09-14T00:10:00': 150,
+        '2026-09-14T01:00:00': 200
       }
     })
   }
