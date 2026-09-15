@@ -86,6 +86,46 @@ function generateUserHashrate (username) {
   }
 }
 
+function parseHistoryBound (value, isEnd = false) {
+  if (value == null || value === '') return NaN
+  if (!isNaN(value) && !String(value).includes('-')) {
+    return parseInt(value, 10) * 1000
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date(`${value}T${isEnd ? '23:59:59' : '00:00:00'}Z`).getTime()
+  }
+  return new Date(value).getTime()
+}
+
+function generateUserHashrateHistory (start, end, window = 3600) {
+  const INTERVAL_MS = 10 * 60 * 1000
+  const avgWindowSeconds = Number(window) || 3600
+  let startTime = parseHistoryBound(start, false)
+  let endTime = parseHistoryBound(end, true)
+
+  if (!Number.isFinite(startTime)) startTime = Date.now() - 24 * 60 * 60 * 1000
+  if (!Number.isFinite(endTime) || endTime <= startTime) {
+    endTime = startTime + 24 * 60 * 60 * 1000
+  }
+
+  const hashrateHistory = {}
+  let hashrate = 100000000000000 + randomNumber() * 10000000000000
+  let current = Math.floor(startTime / INTERVAL_MS) * INTERVAL_MS
+  if (current < startTime) current += INTERVAL_MS
+
+  while (current <= endTime) {
+    hashrate = Math.max(0, hashrate + (randomNumber() - 0.5) * 1000000000000)
+    hashrateHistory[new Date(current).toISOString().slice(0, 19)] = Math.floor(hashrate)
+    current += INTERVAL_MS
+  }
+
+  return {
+    hashrate_history_results: Object.keys(hashrateHistory).length,
+    hashrate_history: hashrateHistory,
+    avg_window_seconds: avgWindowSeconds
+  }
+}
+
 function randomFloat () {
   return crypto.randomBytes(6).readUIntBE(0, 6) / 2 ** 48
 }
@@ -309,6 +349,7 @@ module.exports = {
   generateMockWorkers,
   generateMockTransactions,
   generateUserHashrate,
+  generateUserHashrateHistory,
   randomNumber,
   generateClientStats,
   stratumServerInfo,

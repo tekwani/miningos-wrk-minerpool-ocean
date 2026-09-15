@@ -70,7 +70,7 @@ async function ensureServer () {
 
     // Create HTTP client and API client
     httpClient = new MockHttpClient(TEST_BASE_URL)
-    apiClient = new OceanMinerPoolApi(httpClient)
+    apiClient = new OceanMinerPoolApi(httpClient, { delayMs: 0 })
   }
   return { mockServer, apiClient, httpClient }
 }
@@ -134,6 +134,28 @@ test('integration: getHashRateInfo should fetch user hashrate data', async (t) =
   t.ok(typeof result.hashrate_43200s === 'number')
   t.ok(typeof result.hashrate_86400s === 'number')
   t.ok(result.hashrate_60s > 0)
+})
+
+test('integration: getHashRateHistory should fetch user hashrate history', async (t) => {
+  await ensureServer()
+  const username = 'testuser'
+  const start = '2026-09-14'
+  const end = '2026-09-15'
+  const result = await apiClient.getHashRateHistory(username, start, end)
+  const historyResult = result?.result || result
+
+  t.ok(historyResult)
+  t.ok(typeof historyResult.hashrate_history_results === 'number')
+  t.ok(historyResult.hashrate_history)
+  t.ok(typeof historyResult.hashrate_history === 'object')
+  t.is(historyResult.avg_window_seconds, 3600)
+  t.ok(historyResult.hashrate_history_results > 0)
+  t.is(Object.keys(historyResult.hashrate_history).length, historyResult.hashrate_history_results)
+
+  const timestamps = Object.keys(historyResult.hashrate_history)
+  t.ok(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(timestamps[0]))
+  t.ok(typeof historyResult.hashrate_history[timestamps[0]] === 'number')
+  t.ok(historyResult.hashrate_history[timestamps[0]] >= 0)
 })
 
 test('integration: getWorkers should fetch workers data', async (t) => {

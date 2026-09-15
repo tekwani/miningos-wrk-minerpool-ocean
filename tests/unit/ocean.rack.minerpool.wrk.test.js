@@ -38,6 +38,8 @@ function createMockWorker () {
   worker.ctx = mockCtx
   worker.conf = mockConf
   worker.accounts = mockConf.ocean.accounts
+  worker.apiRetries = mockConf.ocean.apiRetry || 3
+  worker.lastSavedHashrateTs = 0
   worker.wtype = 'ocean'
   worker.prefix = 'ocean-rack-1'
   worker.data = {
@@ -763,14 +765,16 @@ test('fetchData: dispatches scheduler keys', async (t) => {
 
   const calls = []
   worker.fetchStats = async () => { calls.push('1m') }
+  worker.evaluateAlerts = async () => { calls.push('alerts') }
   await worker.fetchData(SCHEDULER_TIMES._1M.key, new Date())
-  t.ok(calls.includes('1m'))
+  t.ok(calls.includes('1m') && calls.includes('alerts'))
 
   calls.length = 0
   worker.fetchWorkers = async () => { calls.push('fw') }
   worker.saveStats = async () => { calls.push('ss') }
+  worker.fetchHashrateHistory = async () => { calls.push('fhh') }
   await worker.fetchData(SCHEDULER_TIMES._5M.key, new Date())
-  t.ok(calls.includes('fw') && calls.includes('ss'))
+  t.ok(calls.includes('fw') && calls.includes('ss') && calls.includes('fhh'))
 
   calls.length = 0
   worker.fetchTransactions = async () => { calls.push('ft') }
@@ -882,6 +886,119 @@ test('fetchTransactions and fetchBlocks', async (t) => {
   }
   await worker.fetchTransactions()
   await worker.fetchBlocks()
+  t.pass()
+})
+
+test('fetchHashrateHistory: saves new history points', async (t) => {
+  const worker = createMockWorker()
+  worker.accounts = ['user1']
+  worker.hashrateHistoryDb = {}
+  const saved = []
+  worker._saveToDb = async (db, ts, data) => { saved.push({ ts, data }) }
+  worker.fetchHashrateHistory = WrkMinerPoolRackOcean.prototype.fetchHashrateHistory
+  worker.oceanApi = {
+    getHashRateHistory: async () => ({
+      hashrate_history_results: 2,
+      hashrate_history: {
+        '2026-09-14T00:00:00': 100,
+        '2026-09-14T00:10:00': 200
+      },
+      avg_window_seconds: 3600
+    })
+  }
+
+  await worker.fetchHashrateHistory()
+  t.is(saved.length, 2)
+  t.is(saved[0].data.username, 'user1')
+  t.is(saved[0].data.hashrate, 100)
+  t.is(saved[1].data.hashrate, 200)
+  t.ok(worker.lastSavedHashrateTs > 0)
+})
+
+test('fetchHashrateHistory: skips empty history and older timestamps', async (t) => {
+  const worker = createMockWorker()
+  worker.accounts = ['user1']
+  const saved = []
+  worker._saveToDb = async (db, ts, data) => { saved.push({ ts, data }) }
+  worker.fetchHashrateHistory = WrkMinerPoolRackOcean.prototype.fetchHashrateHistory
+
+  worker.oceanApi = { getHashRateHistory: async () => ({}) }
+  await worker.fetchHashrateHistory()
+  t.is(saved.length, 0)
+
+  worker.lastSavedHashrateTs = Date.parse('2026-09-14T00:10:00Z')
+  worker.oceanApi = {
+    getHashRateHistory: async () => ({
+      hashrate_history: {
+        '2026-09-14T00:00:00': 100,
+        '2026-09-14T00:10:00': 200
+      }
+    })
+  }
+  await worker.fetchHashrateHistory()
+  t.is(saved.length, 0)
+})
+
+test('fetchHashrateHistory: logs error without throwing', async (t) => {
+  const worker = createMockWorker()
+  worker.fetchHashrateHistory = WrkMinerPoolRackOcean.prototype.fetchHashrateHistory
+  worker.oceanApi = {
+    getHashRateHistory: async () => { throw new Error('down') }
+  }
+  await worker.fetchHashrateHistory()
+  t.pass()
+})
+
+test('getWrkExtData: alerts and alerts-history', async (t) => {
+  const worker = createMockWorker()
+  worker.getDbData = WrkMinerPoolRackOcean.prototype.getDbData
+  worker.getWrkExtData = WrkMinerPoolRackOcean.prototype.getWrkExtData
+  worker.data.alertsData = { ts: 5, alerts: [{ name: 'Ocean_pool_not_reachable' }] }
+
+  const alerts = await worker.getWrkExtData({ query: { key: 'alerts' } })
+  t.is(alerts.alerts[0].name, 'Ocean_pool_not_reachable')
+
+  worker.alertsHistoryDb = mockDbStream([{ ts: 5, alerts: [{ uuid: 'a1' }] }])
+  const history = await worker.getWrkExtData({ query: { key: 'alerts-history', start: 1, end: 9 } })
+  t.is(history.length, 1)
+  t.is(history[0].alerts[0].uuid, 'a1')
+})
+
+test('evaluateAlerts: stores new alerts when ocean is offline', async (t) => {
+  const worker = createMockWorker()
+  worker.evaluateAlerts = WrkMinerPoolRackOcean.prototype.evaluateAlerts
+  worker.getComponentStatus = WrkMinerPoolRackOcean.prototype.getComponentStatus
+  worker.getOceanStatus = WrkMinerPoolRackOcean.prototype.getOceanStatus
+  worker._appendAlertHistory = WrkMinerPoolRackOcean.prototype._appendAlertHistory
+  worker.oceanApi = {
+    ping: async () => { throw new Error('unreachable') }
+  }
+  worker.datumApi = null
+  worker.data.alertsPrev = {}
+  const stored = []
+  worker.alertsHistoryDb = {
+    get: async () => null,
+    put: async (key, value) => { stored.push(JSON.parse(value.toString())) }
+  }
+
+  const active = await worker.evaluateAlerts(1234)
+  t.ok(active.some(a => a.name === 'Ocean_pool_not_reachable'))
+  t.is(stored.length, 1)
+  t.is(worker.data.alertsData.ts, 1234)
+})
+
+test('getOceanStatus: returns online when ping succeeds', async (t) => {
+  const worker = createMockWorker()
+  worker.getOceanStatus = WrkMinerPoolRackOcean.prototype.getOceanStatus
+  worker.oceanApi = { ping: async () => true }
+  t.is(await worker.getOceanStatus(), 'online')
+})
+
+test('fetchYearlyBalances: logs account fetch errors', async (t) => {
+  const worker = createMockWorker()
+  worker.fetchYearlyBalances = WrkMinerPoolRackOcean.prototype.fetchYearlyBalances
+  worker.getYearlyBalances = async () => { throw new Error('fail') }
+  await worker.fetchYearlyBalances()
   t.pass()
 })
 

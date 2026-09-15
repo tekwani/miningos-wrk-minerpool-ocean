@@ -4,7 +4,7 @@ const async = require('async')
 const TetherWrkBase = require('@tetherto/tether-wrk-base/workers/base.wrk.tether')
 const OceanMinerPoolApi = require('./lib/ocean.minerpool.api')
 const DatumApi = require('./lib/datum.minerpool.api')
-const { getWorkersStats, getTimeRanges, convertMsToSeconds, isCurrentMonth, getMonthlyDateRanges } = require('./lib/utils')
+const { getWorkersStats, getTimeRanges, convertMsToSeconds, isCurrentMonth, getMonthlyDateRanges, formatDate } = require('./lib/utils')
 const { BTC_SATS, SCHEDULER_TIMES, POOL_TYPE, MINUTE_MS, HOUR_MS, HOURS_24_MS, DATUM_OFFLINE_ERROR, DATUM_STATUS } = require('./lib/constants')
 const { buildAlerts } = require('./lib/alerts')
 const utilsStore = require('@tetherto/hp-svc-facs-store/utils')
@@ -30,14 +30,17 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
       alertsData: { ts: 0, alerts: [] },
       alertsPrev: {}
     }
+    this.lastSavedHashrateTs = 0
   }
 
   init () {
     super.init()
 
     this.loadConf('ocean', 'ocean')
-    const { accounts, apiUrl, datum } = this.conf.ocean
+    const { accounts, apiUrl, datum, apiRetry } = this.conf.ocean
     this.accounts = accounts
+    this.apiRetries = apiRetry || 3
+
     this.setInitFacs([
       ['fac', '@bitfinex/bfx-facs-scheduler', '0', 'ocean', {}, -10],
       ['fac', '@tetherto/hp-svc-facs-store', 's1', 's1', {
@@ -74,6 +77,7 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
         this.transactionsDb = db.sub('transactions')
         this.workersCountDb = db.sub('workers-count')
         this.statsDb = db.sub('stats')
+        this.hashrateHistoryDb = db.sub('hashrate-history')
         this.workersDb = db.sub('workers')
         this.alertsHistoryDb = db.sub('alerts-history')
 
@@ -101,6 +105,7 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
         case SCHEDULER_TIMES._5M.key:
           await this.fetchWorkers(time)
           await this.saveStats(time)
+          await this.fetchHashrateHistory()
           break
         case SCHEDULER_TIMES._1D.key:
           await this.fetchTransactions()
@@ -161,9 +166,51 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
     }
   }
 
+  async fetchHashrateHistory () {
+    try {
+      const endDate = new Date()
+      const startDate = new Date()
+      startDate.setDate(endDate.getDate() - 1)
+      const end = formatDate(endDate)
+      const start = formatDate(startDate)
+
+      for (const username of this.accounts) {
+        let data
+        for (let attempt = 1; attempt <= (this.apiRetries || 3); attempt++) {
+          data = await this.oceanApi.getHashRateHistory(username, start, end)
+          if (data?.hashrate_history) break
+        }
+
+        const history = data?.hashrate_history
+        if (!history) continue
+
+        for (const dateString in history) {
+          const ts = new Date(`${dateString}Z`).getTime()
+          if (this.lastSavedHashrateTs < ts) {
+            await this._saveToDb(
+              this.hashrateHistoryDb,
+              ts,
+              { ts, username, hashrate: history[dateString] }
+            )
+            this.lastSavedHashrateTs = ts
+          }
+        }
+      }
+    } catch (e) {
+      this._logErr('ERR_FETCH_HASHRATE_HISTORY', e)
+    }
+  }
+
+  async fetchEarnings (username, start, end) {
+    for (let attempt = 1; attempt <= (this.apiRetries || 3); attempt++) {
+      const data = await this.oceanApi.getTransactions(username, start, end)
+      if (data?.earnings) return data.earnings
+    }
+    return []
+  }
+
   async fetchHashrate (username) {
-    const retries = this.conf.ocean?.apiRetry || 3
-    for (let attempt = 1; attempt <= retries; attempt++) {
+    for (let attempt = 1; attempt <= (this.apiRetries || 3); attempt++) {
       const hashrate = await this.oceanApi.getHashRateInfo(username)
       if (hashrate?.hashrate_60s !== undefined) return hashrate
     }
@@ -207,7 +254,7 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
       const start = convertMsToSeconds(ts)
       const end = convertMsToSeconds(ts + HOURS_24_MS)
       for (const username of this.accounts) {
-        const { earnings = [] } = await this.oceanApi.getTransactions(username, start, end)
+        const earnings = await this.fetchEarnings(username, start, end)
         transactions = transactions.concat(earnings.map(t => ({ username, ...t })))
       }
 
@@ -607,6 +654,9 @@ class WrkMinerPoolRackOcean extends TetherWrkBase {
         data = await this.getDbData(this.statsDb, query)
         if (query.interval) data = this._aggrByInterval(data, query.interval)
         data.forEach(d => { if (d.stats) d.stats = this.appendPoolType(d.stats) })
+        break
+      case 'hashrate-history':
+        data = { hashrateHistory: this.appendPoolType(await this.getDbData(this.hashrateHistoryDb, query)) }
         break
       case 'datum-stats':
         data = await this.getDatumStats()

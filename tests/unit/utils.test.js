@@ -150,3 +150,9 @@ test('getTimeRanges: should default to hourly when isHourly not specified', (t) 
 
   t.ok(ranges.length > 0)
 })
+
+test('formatDate: should format local date as YYYY-MM-DD', (t) => {
+  const { formatDate } = require('../../workers/lib/utils')
+  t.is(formatDate(new Date(2026, 8, 14)), '2026-09-14')
+  t.is(formatDate(new Date(2026, 0, 5)), '2026-01-05')
+})
