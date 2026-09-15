@@ -32,14 +32,17 @@ test('constants: POOL_TYPE should be ocean', (t) => {
 test('constants: SCHEDULER_TIMES should have correct structure', (t) => {
   t.ok(SCHEDULER_TIMES._1M)
   t.ok(SCHEDULER_TIMES._5M)
+  t.ok(SCHEDULER_TIMES._30M)
   t.ok(SCHEDULER_TIMES._1D)
 
   t.is(SCHEDULER_TIMES._1M.key, '1m')
   t.is(SCHEDULER_TIMES._5M.key, '5m')
+  t.is(SCHEDULER_TIMES._30M.key, '30m')
   t.is(SCHEDULER_TIMES._1D.key, '1D')
 
   t.ok(SCHEDULER_TIMES._1M.time)
   t.ok(SCHEDULER_TIMES._5M.time)
+  t.ok(SCHEDULER_TIMES._30M.time)
   t.ok(SCHEDULER_TIMES._1D.time)
 })
 
@@ -47,6 +50,7 @@ test('constants: SCHEDULER_TIMES should have valid cron expressions', (t) => {
   // Basic validation that they contain asterisks (cron pattern)
   t.ok(SCHEDULER_TIMES._1M.time.includes('*'))
   t.ok(SCHEDULER_TIMES._5M.time.includes('*'))
+  t.ok(SCHEDULER_TIMES._30M.time.includes('*'))
   t.ok(SCHEDULER_TIMES._1D.time.includes('*'))
 })
 

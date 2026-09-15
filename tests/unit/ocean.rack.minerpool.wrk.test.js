@@ -774,7 +774,11 @@ test('fetchData: dispatches scheduler keys', async (t) => {
   worker.saveStats = async () => { calls.push('ss') }
   worker.fetchHashrateHistory = async () => { calls.push('fhh') }
   await worker.fetchData(SCHEDULER_TIMES._5M.key, new Date())
-  t.ok(calls.includes('fw') && calls.includes('ss') && calls.includes('fhh'))
+  t.ok(calls.includes('fw') && calls.includes('ss'))
+
+  calls.length = 0
+  await worker.fetchData(SCHEDULER_TIMES._30M.key, new Date())
+  t.ok(calls.includes('fhh'))
 
   calls.length = 0
   worker.fetchTransactions = async () => { calls.push('ft') }
